@@ -1,0 +1,11 @@
+--- a/net/minecraft/client/renderer/blockentity/BlockEntityRenderer.java
++++ b/net/minecraft/client/renderer/blockentity/BlockEntityRenderer.java
+@@ -12,7 +_,7 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ @OnlyIn(Dist.CLIENT)
+-public interface BlockEntityRenderer<T extends BlockEntity, S extends BlockEntityRenderState> {
++public interface BlockEntityRenderer<T extends BlockEntity, S extends BlockEntityRenderState> extends net.neoforged.neoforge.client.extensions.IBlockEntityRendererExtension<T> {
+     S createRenderState();
+ 
+     default void extractRenderState(

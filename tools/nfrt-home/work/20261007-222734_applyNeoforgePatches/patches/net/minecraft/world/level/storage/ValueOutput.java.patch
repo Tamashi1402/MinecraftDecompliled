@@ -1,0 +1,11 @@
+--- a/net/minecraft/world/level/storage/ValueOutput.java
++++ b/net/minecraft/world/level/storage/ValueOutput.java
+@@ -4,7 +_,7 @@
+ import com.mojang.serialization.MapCodec;
+ import org.jspecify.annotations.Nullable;
+ 
+-public interface ValueOutput {
++public interface ValueOutput extends net.neoforged.neoforge.common.extensions.ValueOutputExtension {
+     <T> void store(String name, Codec<T> codec, T value);
+ 
+     <T> void storeNullable(String name, Codec<T> codec, @Nullable T value);

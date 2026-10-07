@@ -1,0 +1,26 @@
+--------------------------------------------------------------------------------
+
+Command-Line:
+ - C:\Program Files\Eclipse Adoptium\jdk-21.0.12.8-hotspot\bin\java.exe
+ - -Xmx4096m
+ - -cp
+ - C:\Users\jakub\Desktop\neoforge-decompiler\tools\nfrt-home\artifacts\org\vineflower\vineflower\1.11.2\vineflower-1.11.2.jar;C:\Users\jakub\Desktop\neoforge-decompiler\tools\nfrt-home\artifacts\net\neoforged\vineflower-plugins\0.1.5\vineflower-plugins-0.1.5.jar
+ - org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler
+ - --decompile-inner
+ - --remove-bridge
+ - --decompile-generics
+ - --ascii-strings
+ - --remove-synthetic
+ - --include-classpath
+ - --ignore-invalid-bytecode
+ - --bytecode-source-mapping
+ - --dump-code-lines
+ - --indent-string=    
+ - --log-level=WARN
+ - -cfg=./libraries.txt
+ - C:\Users\jakub\Desktop\neoforge-decompiler\tools\nfrt-home\intermediate_results\preProcessJar_8376668bdb66efb5f796d4e58cf934077f679472_output.jar
+ - ./output.jar
+--------------------------------------------------------------------------------
+
+WARN:  Loading Minecraft-Dist manifest data from archive C:\Users\jakub\Desktop\neoforge-decompiler\tools\nfrt-home\intermediate_results\preProcessJar_8376668bdb66efb5f796d4e58cf934077f679472_output.jar
+WARN:  net/minecraft/world/level/chunk/CarvingMask.{net/minecraft/world/level/chunk/CarvingMask: lambda$new$0} processed twice

@@ -1,0 +1,29 @@
+--- a/net/minecraft/core/Registry.java
++++ b/net/minecraft/core/Registry.java
+@@ -23,7 +_,7 @@
+ import net.minecraft.util.RandomSource;
+ import org.jspecify.annotations.Nullable;
+ 
+-public interface Registry<T> extends IdMap<T>, Keyable, HolderLookup.RegistryLookup<T> {
++public interface Registry<T> extends IdMap<T>, Keyable, HolderLookup.RegistryLookup<T>, net.neoforged.neoforge.registries.IRegistryExtension<T> {
+     @Override
+     ResourceKey<? extends Registry<T>> key();
+ 
+@@ -47,7 +_,7 @@
+     }
+ 
+     private DataResult<Holder.Reference<T>> safeCastToReference(Holder<T> holder) {
+-        return holder instanceof Holder.Reference<T> reference
++        return holder.getDelegate() instanceof Holder.Reference reference
+             ? DataResult.success(reference)
+             : DataResult.error(() -> "Unregistered holder in " + this.key() + ": " + holder);
+     }
+@@ -172,7 +_,7 @@
+ 
+     DataComponentLookup<T> componentLookup();
+ 
+-    public interface PendingTags<T> {
++    public interface PendingTags<T> extends net.neoforged.neoforge.common.extensions.PendingTagsExtension<T> {
+         ResourceKey<? extends Registry<? extends T>> key();
+ 
+         HolderLookup.RegistryLookup<T> lookup();

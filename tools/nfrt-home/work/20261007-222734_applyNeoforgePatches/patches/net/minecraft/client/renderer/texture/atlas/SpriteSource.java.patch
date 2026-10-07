@@ -1,0 +1,11 @@
+--- a/net/minecraft/client/renderer/texture/atlas/SpriteSource.java
++++ b/net/minecraft/client/renderer/texture/atlas/SpriteSource.java
+@@ -12,7 +_,7 @@
+ import org.jspecify.annotations.Nullable;
+ 
+ @OnlyIn(Dist.CLIENT)
+-public interface SpriteSource {
++public interface SpriteSource extends net.neoforged.neoforge.client.extensions.SpriteSourceExtension {
+     FileToIdConverter TEXTURE_ID_CONVERTER = new FileToIdConverter("textures", ".png");
+ 
+     void run(ResourceManager resourceManager, SpriteSource.Output output);

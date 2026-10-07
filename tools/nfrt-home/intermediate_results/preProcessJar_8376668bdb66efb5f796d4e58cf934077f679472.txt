@@ -1,0 +1,23 @@
+{
+  "type": "preProcessJar",
+  "hashValue": "8376668bdb66efb5f796d4e58cf934077f679472",
+  "components": {
+    "inputServerJar": {
+      "value": "97ccd4c0ed3f81bbb7bfacddd1090b0c56f9bc51",
+      "annotation": "~/Desktop/neoforge-decompiler/tools/nfrt-home/artifacts/minecraft_26.1.2_server.jar"
+    },
+    "inputClientJar": {
+      "value": "4e618f09a0c649dde3fdf829df443ce0b8831e65",
+      "annotation": "~/Desktop/neoforge-decompiler/tools/nfrt-home/artifacts/minecraft_26.1.2_client.jar"
+    },
+    "external tool classpath[0]": {
+      "value": "net.neoforged.installertools:installertools:4.0.16:fatjar"
+    },
+    "command line arg": {
+      "value": "--task PROCESS_MINECRAFT_JAR --input {inputClientJar} --input {inputServerJar} --output {output} --no-mod-manifest"
+    },
+    "jvm args": {
+      "value": ""
+    }
+  }
+}

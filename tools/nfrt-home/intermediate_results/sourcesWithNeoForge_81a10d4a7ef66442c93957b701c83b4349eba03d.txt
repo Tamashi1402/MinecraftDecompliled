@@ -1,0 +1,21 @@
+{
+  "type": "sourcesWithNeoForge",
+  "hashValue": "81a10d4a7ef66442c93957b701c83b4349eba03d",
+  "components": {
+    "input": {
+      "value": "6f9831de660099021f693e05fa971a115014cb03",
+      "annotation": "~/Desktop/neoforge-decompiler/tools/nfrt-home/intermediate_results/transformSources_7ee9ff0550e2c150a64c29b7e59e9d89b3193297_output.zip"
+    },
+    "action implementation": {
+      "value": "8aa24964ce5b7a55bcec656f1ba7d987dab642b7",
+      "annotation": "~/Desktop/neoforge-decompiler/tools/cache/neoform-runtime-2.0.31-all.jar"
+    },
+    "injectSource[0].type": {
+      "value": "net.neoforged.neoform.runtime.actions.InjectFromZipFileSource"
+    },
+    "injectSource[0].cache-key": {
+      "value": "e1a8678bb8e7902f07cd69d71dbd473be775b13d",
+      "annotation": " from C:\\Users\\jakub\\Desktop\\neoforge-decompiler\\tools\\nfrt-home\\artifacts\\net\\neoforged\\neoforge\\26.1.2.95\\neoforge-26.1.2.95-sources.jar"
+    }
+  }
+}
