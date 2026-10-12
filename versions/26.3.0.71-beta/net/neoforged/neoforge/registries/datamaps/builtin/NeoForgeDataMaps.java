@@ -1,0 +1,206 @@
+/*
+ * Copyright (c) NeoForged and contributors
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+
+package net.neoforged.neoforge.registries.datamaps.builtin;
+
+import net.minecraft.core.component.BlockTransformer;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.behavior.GiveGiftToHero;
+import net.minecraft.world.entity.ai.behavior.WorkAtComposter;
+import net.minecraft.world.entity.ai.sensing.VillagerHostilesSensor;
+import net.minecraft.world.entity.animal.parrot.Parrot;
+import net.minecraft.world.entity.npc.villager.VillagerProfession;
+import net.minecraft.world.entity.npc.villager.VillagerType;
+import net.minecraft.world.item.HoneycombItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.WeatheringCopper;
+import net.minecraft.world.level.gameevent.GameEvent;
+import net.minecraft.world.level.gameevent.vibrations.VibrationSystem;
+import net.minecraft.world.level.levelgen.feature.MonsterRoomFeature;
+import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.DataMapHooks;
+import net.neoforged.neoforge.common.NeoForgeMod;
+import net.neoforged.neoforge.registries.datamaps.AdvancedDataMapType;
+import net.neoforged.neoforge.registries.datamaps.DataMapType;
+import net.neoforged.neoforge.registries.datamaps.DataMapValueMerger;
+import net.neoforged.neoforge.registries.datamaps.RegisterDataMapTypesEvent;
+
+/**
+ * Holds all {@link DataMapType data maps} provided by NeoForge.
+ * <p>
+ * These data maps are usually replacements for vanilla in-code maps, and are optionally
+ * synced so that mods can use them on the client side.
+ */
+public class NeoForgeDataMaps {
+    /**
+     * The {@linkplain EntityType} data map that replaces {@link VillagerHostilesSensor#ACCEPTABLE_DISTANCE_FROM_HOSTILES}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/entity_type/acceptable_villager_distances.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code distance}, a float - the acceptable distance between the hostile mob and a villager</li>
+     * </ul>
+     *
+     * The use of a float as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<EntityType<?>, AcceptableVillagerDistance> ACCEPTABLE_VILLAGER_DISTANCES = DataMapType.builder(id("acceptable_villager_distances"), Registries.ENTITY_TYPE, AcceptableVillagerDistance.CODEC)
+            .synced(AcceptableVillagerDistance.DISTANCE_CODEC, false).build();
+
+    /// The [BlockTransformer][BlockTransformer] data map that allows appending additional entries to existing [BlockTransformer]s.
+    ///
+    /// The location of this data map is {@code neoforge/data_maps/block_transformer/block_transform_appenders.json}, and the values are
+    /// lists of [BlockTransformer.BlockTransformData]s
+    ///
+    /// Transforms targeting a single block or state thereof should use [#TRANSFORMABLES] instead.
+    public static final DataMapType<BlockTransformer, BlockTransformAppender> BLOCK_TRANSFORM_APPENDERS = AdvancedDataMapType
+            .builder(id("block_transform_appenders"), Registries.BLOCK_TRANSFORMER, BlockTransformAppender.CODEC)
+            .synced(BlockTransformAppender.CODEC, false)
+            .merger(DataMapValueMerger.wrappedListMerger(BlockTransformAppender::entries, BlockTransformAppender::new))
+            .build();
+
+    /**
+     * The {@linkplain EntityType} data map that replaces {@link MonsterRoomFeature#MOBS}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/entity_type/monster_room_mobs.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code weight}, a positive nonzero integer - the weight of this type that will be used when selecting a type for the spawner.</li>
+     * </ul>
+     *
+     * The use of an integer as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<EntityType<?>, MonsterRoomMob> MONSTER_ROOM_MOBS = DataMapType.builder(
+            id("monster_room_mobs"), Registries.ENTITY_TYPE, MonsterRoomMob.CODEC).synced(MonsterRoomMob.WEIGHT_CODEC, false).build();
+
+    /**
+     * The {@linkplain Block} data map that replaces {@link WeatheringCopper#NEXT_BY_BLOCK}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/block/oxidizables.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code next_oxidation_stage}, a block that the object should convert into once it changes oxidizing states</li>
+     * </ul>
+     *
+     * The inverted map of this can be found at {@link DataMapHooks#INVERSE_OXIDIZABLES_DATAMAP}
+     */
+    public static final DataMapType<Block, Oxidizable> OXIDIZABLES = DataMapType.builder(
+            id("oxidizables"), Registries.BLOCK, Oxidizable.CODEC).synced(Oxidizable.CODEC, false).build();
+
+    /**
+     * The {@linkplain EntityType} data map that replaces {@link Parrot#MOB_SOUND_MAP}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/entity_type/parrot_imitations.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code sound}, sound event ID - the sound that the parrot will emit when imitating the mob</li>
+     * </ul>
+     *
+     * The use of a string as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<EntityType<?>, ParrotImitation> PARROT_IMITATIONS = DataMapType.builder(
+            id("parrot_imitations"), Registries.ENTITY_TYPE, ParrotImitation.CODEC).synced(ParrotImitation.SOUND_CODEC, false).build();
+
+    /**
+     * The {@linkplain VillagerProfession} data map that replaces {@link GiveGiftToHero#GIFTS}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/villager_profession/raid_hero_gifts.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code loot_table}, the path to the loot table that the villager gives to the player after a raid finishes</li>
+     * </ul>
+     */
+    public static final DataMapType<VillagerProfession, RaidHeroGift> RAID_HERO_GIFTS = DataMapType.builder(
+            id("raid_hero_gifts"), Registries.VILLAGER_PROFESSION, RaidHeroGift.CODEC).synced(RaidHeroGift.LOOT_TABLE_CODEC, false).build();
+
+    /// The [Block][Block] data map that allows appending additional entries to existing [BlockTransformer]s.
+    ///
+    /// The location of this data map is `neoforge/data_maps/block/transformables.json`, and the values are objects with either:
+    /// - 1 field
+    ///   - `transformers`, an object representing a map of [BlockTransformer] keys to [BlockTransformer.BlockTransformData] entries
+    /// - 2 fields
+    ///   - `transformer`, the [ResourceKey] of a [BlockTransformer]
+    ///   - `transform_data`, a [BlockTransformer.BlockTransformData] describing how the block should be transformed
+    ///
+    /// The [BlockStateProvider] specified by the transform data entry/entries must ensure that the specified transformation only
+    /// applies to the block this datamap value is attached to. Datamap values of this type cannot be attached to multiple
+    /// blocks via tags.
+    /// Transformations applying to multiple blocks (i.e. via tag or custom block predicates) should use [#BLOCK_TRANSFORM_APPENDERS] instead.
+    public static final DataMapType<Block, Transformable> TRANSFORMABLES = AdvancedDataMapType.builder(id("transformables"), Registries.BLOCK, Transformable.CODEC)
+            .synced(Transformable.CODEC, false)
+            .merger(DataMapValueMerger.wrappedMapMerger(Transformable::transformers, Transformable::new))
+            .remover(Transformable.Remover.CODEC)
+            .disableTagSupport("A Transformable and its BlockTransformData must only target and attach to a single block to prevent duplicate transforms and support datamap removers")
+            .build();
+
+    /**
+     * The {@linkplain GameEvent} data map that replaces {@link VibrationSystem#VIBRATION_FREQUENCY_FOR_EVENT}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/game_event/vibration_frequencies.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code frequency}, an integer between {@code 1} and {@code 15} (inclusive) - the vibration frequency of the game event</li>
+     * </ul>
+     *
+     * The use of an integer as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<GameEvent, VibrationFrequency> VIBRATION_FREQUENCIES = DataMapType.builder(
+            id("vibration_frequencies"), Registries.GAME_EVENT, VibrationFrequency.CODEC).synced(VibrationFrequency.FREQUENCY_CODEC, false).build();
+
+    /**
+     * The {@linkplain Item} data map that replaces {@link WorkAtComposter#COMPOSTABLE_ITEMS}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/item/villager_compostables.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code can_villager_compost}, a boolean indicating whether farmer villagers can compost the item</li>
+     * </ul>
+     *
+     * The use of a boolean as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<Item, VillagerCompostable> VILLAGER_COMPOSTABLES = DataMapType.builder(
+            id("villager_compostables"), Registries.ITEM, VillagerCompostable.CODEC).build();
+
+    /**
+     * The {@linkplain Biome} data map that replaces {@link VillagerType#BY_BIOME}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/worldgen/biome/villager_types.json}, and the values are objects with 1 field:
+     * <ul>
+     * <li>{@code villager_type}, villager type ID - the type of the villagers present in the biome</li>
+     * </ul>
+     *
+     * The use of a string as the value is also possible, though discouraged in case more options are added in the future.
+     */
+    public static final DataMapType<Biome, BiomeVillagerType> VILLAGER_TYPES = DataMapType.builder(
+            id("villager_types"), Registries.BIOME, BiomeVillagerType.CODEC).synced(BiomeVillagerType.TYPE_CODEC, false).build();
+
+    /**
+     * The {@linkplain Block} data map that replaces {@link HoneycombItem#WAXABLES}.
+     * <p>
+     * The location of this data map is {@code neoforge/data_maps/block/waxables.json}, and the values are objects with 1 field:
+     * </ul>
+     *
+     * The inverted map of this can be found at {@link DataMapHooks#INVERSE_WAXABLES_DATAMAP}
+     */
+    public static final DataMapType<Block, Waxable> WAXABLES = DataMapType.builder(
+            id("waxables"), Registries.BLOCK, Waxable.CODEC).synced(Waxable.CODEC, false).build();
+
+    private static Identifier id(final String name) {
+        return Identifier.fromNamespaceAndPath(NeoForgeMod.MOD_ID, name);
+    }
+
+    @SubscribeEvent
+    private static void register(final RegisterDataMapTypesEvent event) {
+        event.register(ACCEPTABLE_VILLAGER_DISTANCES);
+        event.register(BLOCK_TRANSFORM_APPENDERS);
+        event.register(MONSTER_ROOM_MOBS);
+        event.register(OXIDIZABLES);
+        event.register(PARROT_IMITATIONS);
+        event.register(RAID_HERO_GIFTS);
+        event.register(TRANSFORMABLES);
+        event.register(VIBRATION_FREQUENCIES);
+        event.register(VILLAGER_COMPOSTABLES);
+        event.register(VILLAGER_TYPES);
+        event.register(WAXABLES);
+    }
+}

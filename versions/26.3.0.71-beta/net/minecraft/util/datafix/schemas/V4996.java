@@ -1,0 +1,39 @@
+package net.minecraft.util.datafix.schemas;
+
+import com.mojang.datafixers.DSL;
+import com.mojang.datafixers.schemas.Schema;
+import com.mojang.datafixers.types.templates.TypeTemplate;
+import java.util.Map;
+import java.util.SequencedMap;
+import java.util.function.Supplier;
+import net.minecraft.util.datafix.fixes.References;
+
+public class V4996 extends NamespacedSchema {
+    public V4996(int versionKey, Schema parent) {
+        super(versionKey, parent);
+    }
+
+    public static SequencedMap<String, Supplier<TypeTemplate>> components(Schema schema) {
+        SequencedMap<String, Supplier<TypeTemplate>> components = V4059.components(schema);
+        components.put(
+            "minecraft:pot_decorations",
+            () -> DSL.optionalFields(
+                "back",
+                References.ITEM_STACK.in(schema),
+                "left",
+                References.ITEM_STACK.in(schema),
+                "right",
+                References.ITEM_STACK.in(schema),
+                "front",
+                References.ITEM_STACK.in(schema)
+            )
+        );
+        return components;
+    }
+
+    @Override
+    public void registerTypes(Schema schema, Map<String, Supplier<TypeTemplate>> entityTypes, Map<String, Supplier<TypeTemplate>> blockEntityTypes) {
+        super.registerTypes(schema, entityTypes, blockEntityTypes);
+        schema.registerType(true, References.DATA_COMPONENTS, () -> DSL.optionalFieldsLazy(components(schema)));
+    }
+}

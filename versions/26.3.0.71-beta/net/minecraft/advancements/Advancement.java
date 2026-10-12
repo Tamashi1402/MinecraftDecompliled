@@ -1,0 +1,237 @@
+package net.minecraft.advancements;
+
+import com.google.common.collect.ImmutableMap;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.Map;
+import java.util.Optional;
+import net.minecraft.ChatFormatting;
+import net.minecraft.advancements.triggers.Criterion;
+import net.minecraft.core.ClientAsset;
+import net.minecraft.core.HolderGetter;
+import net.minecraft.data.worldgen.BootstrapContext;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.ComponentUtils;
+import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.ProblemReporter;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStackTemplate;
+import net.minecraft.world.level.storage.loot.ValidationContextSource;
+
+import net.neoforged.neoforge.common.extensions.IAdvancementBuilderExtension;
+
+public record Advancement(
+    Optional<Identifier> parent,
+    Optional<DisplayInfo> display,
+    AdvancementRewards rewards,
+    Map<String, Criterion<?>> criteria,
+    AdvancementRequirements requirements,
+    boolean sendsTelemetryEvent,
+    Optional<Component> name
+) {
+    private static final Codec<Map<String, Criterion<?>>> CRITERIA_CODEC = Codec.unboundedMap(Codec.STRING, Criterion.CODEC)
+        .validate(criteria -> criteria.isEmpty() ? DataResult.error(() -> "Advancement criteria cannot be empty") : DataResult.success(criteria));
+    public static final Codec<Advancement> CODEC = RecordCodecBuilder.<Advancement>create(
+            i -> i.group(
+                    Identifier.CODEC.optionalFieldOf("parent").forGetter(Advancement::parent),
+                    DisplayInfo.CODEC.optionalFieldOf("display").forGetter(Advancement::display),
+                    AdvancementRewards.CODEC.optionalFieldOf("rewards", AdvancementRewards.EMPTY).forGetter(Advancement::rewards),
+                    CRITERIA_CODEC.fieldOf("criteria").forGetter(Advancement::criteria),
+                    AdvancementRequirements.CODEC.optionalFieldOf("requirements").forGetter(a -> Optional.of(a.requirements())),
+                    Codec.BOOL.optionalFieldOf("sends_telemetry_event", false).forGetter(Advancement::sendsTelemetryEvent)
+                )
+                .apply(i, (parent, display, rewards, criteria, requirementsOpt, sendsTelemetryEvent) -> {
+                    AdvancementRequirements requirements = requirementsOpt.orElseGet(() -> AdvancementRequirements.allOf(criteria.keySet()));
+                    return new Advancement(parent, display, rewards, criteria, requirements, sendsTelemetryEvent);
+                })
+        )
+        .validate(Advancement::validate);
+    public static final StreamCodec<RegistryFriendlyByteBuf, Advancement> STREAM_CODEC = StreamCodec.composite(
+        Identifier.STREAM_CODEC.apply(ByteBufCodecs::optional),
+        Advancement::parent,
+        DisplayInfo.STREAM_CODEC.apply(ByteBufCodecs::optional),
+        Advancement::display,
+        AdvancementRequirements.STREAM_CODEC,
+        Advancement::requirements,
+        ByteBufCodecs.BOOL,
+        Advancement::sendsTelemetryEvent,
+        (parent, display, requirements, sendsTelemetryEvent) -> new Advancement(
+            parent, display, AdvancementRewards.EMPTY, Map.of(), requirements, sendsTelemetryEvent
+        )
+    );
+
+    public Advancement(
+        Optional<Identifier> parent,
+        Optional<DisplayInfo> display,
+        AdvancementRewards rewards,
+        Map<String, Criterion<?>> criteria,
+        AdvancementRequirements requirements,
+        boolean sendsTelemetryEvent
+    ) {
+        this(parent, display, rewards, Map.copyOf(criteria), requirements, sendsTelemetryEvent, display.map(Advancement::decorateName));
+    }
+
+    private static DataResult<Advancement> validate(Advancement advancement) {
+        boolean isRoot = advancement.parent.isEmpty();
+        boolean isVisible = advancement.display.isPresent();
+        boolean hasBackground = isVisible && advancement.display.get().background().isPresent();
+        if (isRoot && isVisible && !hasBackground) {
+            return DataResult.error(() -> "Visible advancement roots must have background");
+        }
+
+        if (!isRoot && hasBackground) {
+            return DataResult.error(() -> "Only advancement roots can have background");
+        }
+
+        DataResult<AdvancementRequirements> requirementValidation = advancement.requirements().validate(advancement.criteria().keySet());
+        return requirementValidation.isError() ? requirementValidation.map(var1x -> advancement) : DataResult.success(advancement);
+    }
+
+    private static Component decorateName(DisplayInfo display) {
+        Component displayTitle = display.title();
+        ChatFormatting color = display.type().getChatColor();
+        Component tooltip = ComponentUtils.mergeStyles(displayTitle.copy(), Style.EMPTY.withColor(color)).append("\n").append(display.description());
+        Component title = displayTitle.copy().withStyle(s -> s.withHoverEvent(new HoverEvent.ShowText(tooltip)));
+        return ComponentUtils.wrapInSquareBrackets(title).withStyle(color);
+    }
+
+    public static Component name(AdvancementHolder holder) {
+        return holder.value().name().orElseGet(() -> Component.literal(holder.id().toString()));
+    }
+
+    public boolean isRoot() {
+        return this.parent.isEmpty();
+    }
+
+    public void validate(ProblemReporter reporter, HolderGetter.Provider lootData) {
+        this.criteria.forEach((name, criterion) -> {
+            ValidationContextSource validator = new ValidationContextSource(reporter.forChild(new ProblemReporter.RootFieldPathElement(name)), lootData);
+            criterion.triggerInstance().validate(validator);
+        });
+    }
+
+    public static class Builder implements IAdvancementBuilderExtension {
+        private Optional<Identifier> parent = Optional.empty();
+        private Optional<DisplayInfo> display = Optional.empty();
+        private AdvancementRewards rewards = AdvancementRewards.EMPTY;
+        private final ImmutableMap.Builder<String, Criterion<?>> criteria = ImmutableMap.builder();
+        private Optional<AdvancementRequirements> requirements = Optional.empty();
+        private AdvancementRequirements.Strategy requirementsStrategy = AdvancementRequirements.Strategy.AND;
+        private boolean sendsTelemetryEvent;
+
+        public static Advancement.Builder advancement() {
+            return new Advancement.Builder().sendsTelemetryEvent();
+        }
+
+        public static Advancement.Builder recipeAdvancement() {
+            return new Advancement.Builder();
+        }
+
+        public Advancement.Builder parent(AdvancementHolder parent) {
+            this.parent = Optional.of(parent.id());
+            return this;
+        }
+
+        @Deprecated(forRemoval = true)
+        public Advancement.Builder parent(Identifier parent) {
+            this.parent = Optional.of(parent);
+            return this;
+        }
+
+        public Advancement.Builder rootDisplay(
+            ItemStackTemplate icon,
+            Component title,
+            Component description,
+            Identifier background,
+            AdvancementType frame,
+            boolean showToast,
+            boolean announceChat,
+            boolean hidden
+        ) {
+            return this.display(
+                new DisplayInfo(icon, title, description, Optional.of(new ClientAsset.ResourceTexture(background)), frame, showToast, announceChat, hidden)
+            );
+        }
+
+        public Advancement.Builder rootDisplay(
+            Item icon,
+            Component title,
+            Component description,
+            Identifier background,
+            AdvancementType frame,
+            boolean showToast,
+            boolean announceChat,
+            boolean hidden
+        ) {
+            return this.rootDisplay(new ItemStackTemplate(icon), title, description, background, frame, showToast, announceChat, hidden);
+        }
+
+        public Advancement.Builder display(
+            ItemStackTemplate icon, Component title, Component description, AdvancementType frame, boolean showToast, boolean announceChat, boolean hidden
+        ) {
+            return this.display(new DisplayInfo(icon, title, description, Optional.empty(), frame, showToast, announceChat, hidden));
+        }
+
+        public Advancement.Builder display(
+            Item icon, Component title, Component description, AdvancementType frame, boolean showToast, boolean announceChat, boolean hidden
+        ) {
+            return this.display(new ItemStackTemplate(icon), title, description, frame, showToast, announceChat, hidden);
+        }
+
+        public Advancement.Builder display(DisplayInfo display) {
+            this.display = Optional.of(display);
+            return this;
+        }
+
+        public Advancement.Builder rewards(AdvancementRewards.Builder rewards) {
+            return this.rewards(rewards.build());
+        }
+
+        public Advancement.Builder rewards(AdvancementRewards rewards) {
+            this.rewards = rewards;
+            return this;
+        }
+
+        public Advancement.Builder addCriterion(String name, Criterion<?> criterion) {
+            this.criteria.put(name, criterion);
+            return this;
+        }
+
+        public Advancement.Builder requirements(AdvancementRequirements.Strategy strategy) {
+            this.requirementsStrategy = strategy;
+            return this;
+        }
+
+        public Advancement.Builder requirements(AdvancementRequirements requirements) {
+            this.requirements = Optional.of(requirements);
+            return this;
+        }
+
+        public Advancement.Builder sendsTelemetryEvent() {
+            this.sendsTelemetryEvent = true;
+            return this;
+        }
+
+        public AdvancementHolder build(Identifier id) {
+            Map<String, Criterion<?>> criteria = this.criteria.buildOrThrow();
+            AdvancementRequirements requirements = this.requirements.orElseGet(() -> this.requirementsStrategy.create(criteria.keySet()));
+            return new AdvancementHolder(id, new Advancement(this.parent, this.display, this.rewards, criteria, requirements, this.sendsTelemetryEvent));
+        }
+
+        public AdvancementHolder save(BootstrapContext<Advancement> output, String name) {
+            return this.save(output, name, new net.neoforged.neoforge.common.conditions.ICondition[0]);
+        }
+
+        public AdvancementHolder save(BootstrapContext<Advancement> output, String name, net.neoforged.neoforge.common.conditions.ICondition... conditions) {
+            AdvancementHolder advancement = this.build(Identifier.parse(name));
+            advancement.register(output, conditions);
+            return advancement;
+        }
+    }
+}

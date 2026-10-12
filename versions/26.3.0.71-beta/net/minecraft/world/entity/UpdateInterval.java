@@ -1,0 +1,33 @@
+package net.minecraft.world.entity;
+
+public interface UpdateInterval {
+    UpdateInterval NEVER = new UpdateInterval() {
+        @Override
+        public boolean test(int tick) {
+            return false;
+        }
+
+        @Override
+        public int nextInterval(int tick) {
+            return 0;
+        }
+    };
+
+    boolean test(int tick);
+
+    int nextInterval(int tick);
+
+    static UpdateInterval periodic(int period) {
+        return new UpdateInterval() {
+            @Override
+            public boolean test(int tick) {
+                return tick % period == 0;
+            }
+
+            @Override
+            public int nextInterval(int tick) {
+                return tick / period * period + period;
+            }
+        };
+    }
+}

@@ -1,0 +1,233 @@
+package net.minecraft.world.level.storage.loot;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
+import net.minecraft.core.Holder;
+import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntries;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntry;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntryContainer;
+import net.minecraft.world.level.storage.loot.entries.UniformContainerBase;
+import net.minecraft.world.level.storage.loot.functions.FunctionUserBuilder;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunctions;
+import net.minecraft.world.level.storage.loot.predicates.ConditionUserBuilder;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+import net.minecraft.world.level.storage.loot.providers.number.floats.ContextFloatProvider;
+import net.minecraft.world.level.storage.loot.providers.number.floats.ContextFloatProviders;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProvider;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProviders;
+import org.apache.commons.lang3.mutable.MutableInt;
+
+public class LootPool implements Validatable {
+    public static final Codec<LootPool> CODEC = RecordCodecBuilder.create(
+        i -> i.group(
+                LootPoolEntries.CODEC.listOf().fieldOf("entries").forGetter(p -> p.entries),
+                LootItemCondition.CODEC.optionalFieldOf("condition").forGetter(p -> p.condition),
+                LootItemFunctions.CODEC.optionalFieldOf("modifier").forGetter(p -> p.modifier),
+                ContextIntProviders.CODEC.fieldOf("rolls").forGetter(p -> p.rolls),
+                ContextFloatProviders.CODEC.optionalFieldOf("bonus_rolls", ContextFloatProviders.exactly(0.0F)).forGetter(p -> p.bonusRolls),
+                Codec.STRING.optionalFieldOf("name").forGetter(pool -> java.util.Optional.ofNullable(pool.name).filter(name -> !name.startsWith("custom#")))
+            )
+            .apply(i, LootPool::new)
+    );
+    private final List<LootPoolEntryContainer> entries;
+    private final Optional<Holder<LootItemCondition>> condition;
+    private final Optional<Holder<LootItemFunction>> modifier;
+    private Holder<ContextIntProvider> rolls;
+    private Holder<ContextFloatProvider> bonusRolls;
+
+    private LootPool(
+        List<LootPoolEntryContainer> entries,
+        Optional<Holder<LootItemCondition>> condition,
+        Optional<Holder<LootItemFunction>> modifier,
+        Holder<ContextIntProvider> rolls,
+        Holder<ContextFloatProvider> bonusRolls,
+        java.util.Optional<String> name
+    ) {
+        this.entries = entries;
+        this.condition = condition;
+        this.modifier = modifier;
+        this.rolls = rolls;
+        this.bonusRolls = bonusRolls;
+        this.name = name.orElse(null);
+    }
+
+    private void addRandomItem(Consumer<ItemStack> result, LootContext context) {
+        RandomSource random = context.getRandom();
+        List<LootPoolEntry> validEntries = Lists.newArrayList();
+        MutableInt totalWeight = new MutableInt();
+
+        for (LootPoolEntryContainer entry : this.entries) {
+            entry.expand(context, e -> {
+                int weight = e.getWeight(context.getLuck());
+                if (weight > 0) {
+                    validEntries.add(e);
+                    totalWeight.add(weight);
+                }
+            });
+        }
+
+        int entryCount = validEntries.size();
+        if (totalWeight.intValue() != 0 && entryCount != 0) {
+            if (entryCount == 1) {
+                validEntries.get(0).createItemStack(result, context);
+            } else {
+                int index = random.nextInt(totalWeight.intValue());
+
+                for (LootPoolEntry entry : validEntries) {
+                    index -= entry.getWeight(context.getLuck());
+                    if (index < 0) {
+                        entry.createItemStack(result, context);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    public void addRandomItems(Consumer<ItemStack> result, LootContext context) {
+        if (!this.condition.isPresent() || this.condition.get().value().test(context)) {
+            Consumer<ItemStack> decoratedConsumer = LootItemFunction.decorate(this.modifier, result, context);
+            int count = this.rolls.value().getInt(context) + Mth.floor(this.bonusRolls.value().getFloat(context) * context.getLuck());
+
+            for (int i = 0; i < count; i++) {
+                this.addRandomItem(decoratedConsumer, context);
+            }
+        }
+    }
+
+    @Override
+    public void validate(ValidationContext output) {
+        Validatable.validateHolder(output, "condition", this.condition);
+        Validatable.validateHolder(output, "modifier", this.modifier);
+        Validatable.validate(output, "entries", this.entries);
+        Validatable.validateHolder(output, "rolls", this.rolls);
+        Validatable.validateHolder(output, "bonus_rolls", this.bonusRolls);
+    }
+
+    // Neo: Implement LootPool freezing to prevent manipulation outside of Neo APIs
+    private boolean isFrozen = false;
+
+    public void freeze() {
+        this.isFrozen = true;
+    }
+
+    public boolean isFrozen() {
+        return this.isFrozen;
+    }
+
+    private void checkFrozen() {
+        if (this.isFrozen())
+            throw new RuntimeException("Attempted to modify LootPool after being frozen!");
+    }
+
+    // Neo: Apply names for LootPools to allow easier targeting specific pools
+    @org.jspecify.annotations.Nullable
+    private String name;
+
+    @org.jspecify.annotations.Nullable
+    public String getName() {
+        return this.name;
+    }
+
+    void setName(final String name) {
+        if (this.name != null) {
+            throw new UnsupportedOperationException("Cannot change the name of a pool when it has a name set!");
+        }
+        this.name = name;
+    }
+
+    // Neo: Add getters and setters for changing the rolls for this pool
+    public Holder<ContextIntProvider> getRolls() {
+        return this.rolls;
+    }
+
+    public Holder<ContextFloatProvider> getBonusRolls() {
+        return this.bonusRolls;
+    }
+
+    public void setRolls(Holder<ContextIntProvider> v) {
+        checkFrozen();
+        this.rolls = v;
+    }
+
+    public void setBonusRolls(Holder<ContextFloatProvider> v) {
+        checkFrozen();
+        this.bonusRolls = v;
+    }
+
+    public static LootPool.Builder lootPool() {
+        return new LootPool.Builder();
+    }
+
+    public static class Builder implements FunctionUserBuilder<LootPool.Builder>, ConditionUserBuilder<LootPool.Builder> {
+        private final ImmutableList.Builder<LootPoolEntryContainer> entries = ImmutableList.builder();
+        private final ImmutableList.Builder<Holder<LootItemCondition>> conditions = ImmutableList.builder();
+        private final ImmutableList.Builder<Holder<LootItemFunction>> functions = ImmutableList.builder();
+        private Holder<ContextIntProvider> rolls = ContextIntProviders.exactly(1);
+        private Holder<ContextFloatProvider> bonusRolls = ContextFloatProviders.exactly(0.0F);
+        @org.jspecify.annotations.Nullable
+        private String name;
+
+        public LootPool.Builder setRolls(Holder<ContextIntProvider> rolls) {
+            this.rolls = rolls;
+            return this;
+        }
+
+        public LootPool.Builder unwrap() {
+            return this;
+        }
+
+        public LootPool.Builder setBonusRolls(Holder<ContextFloatProvider> bonusRolls) {
+            this.bonusRolls = bonusRolls;
+            return this;
+        }
+
+        public LootPool.Builder add(LootPoolEntryContainer.Builder<?> entry) {
+            this.entries.add(entry.build());
+            return this;
+        }
+
+        public LootPool.Builder addAll(List<? extends UniformContainerBase.Builder<?>> entries) {
+            for (LootPoolEntryContainer.Builder<?> entry : entries) {
+                this.add(entry);
+            }
+
+            return this;
+        }
+
+        public LootPool.Builder when(Holder<LootItemCondition> condition) {
+            this.conditions.add(condition);
+            return this;
+        }
+
+        public LootPool.Builder apply(Holder<LootItemFunction> function) {
+            this.functions.add(function);
+            return this;
+        }
+
+        public LootPool.Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public LootPool build() {
+            return new LootPool(
+                this.entries.build(),
+                ConditionUserBuilder.buildCondition(this.conditions.build()),
+                FunctionUserBuilder.buildFunction(this.functions.build()),
+                this.rolls,
+                this.bonusRolls,
+                java.util.Optional.ofNullable(this.name)
+            );
+        }
+    }
+}

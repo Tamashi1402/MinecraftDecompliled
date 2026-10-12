@@ -1,0 +1,17 @@
+package net.minecraft.client.resources.language;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+
+@OnlyIn(Dist.CLIENT)
+class EmptyTranslationsException extends RuntimeException {
+    private final String languageCode;
+
+    EmptyTranslationsException(String languageCode) {
+        this.languageCode = languageCode;
+    }
+
+    public String getLanguageCode() {
+        return this.languageCode;
+    }
+}

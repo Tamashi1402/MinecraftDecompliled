@@ -1,0 +1,42 @@
+package net.minecraft.world.level.storage.loot.entries;
+
+import com.mojang.datafixers.Products.P5;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder.Instance;
+import com.mojang.serialization.codecs.RecordCodecBuilder.Mu;
+import java.util.Optional;
+import java.util.function.Consumer;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
+import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
+
+public abstract class ExpandableContainerBase extends UniformContainerBase {
+    protected final boolean expand;
+
+    protected static <T extends ExpandableContainerBase> P5<Mu<T>, Boolean, Integer, Integer, Optional<Holder<LootItemCondition>>, Optional<Holder<LootItemFunction>>> expandableFields(
+        Instance<T> i
+    ) {
+        return i.group(Codec.BOOL.optionalFieldOf("expand", false).forGetter(e -> e.expand)).and(uniformFields(i));
+    }
+
+    protected ExpandableContainerBase(
+        boolean expand, int weight, int quality, Optional<Holder<LootItemCondition>> condition, Optional<Holder<LootItemFunction>> modifier
+    ) {
+        super(weight, quality, condition, modifier);
+        this.expand = expand;
+    }
+
+    @Override
+    public abstract MapCodec<? extends ExpandableContainerBase> codec();
+
+    @Override
+    public final boolean expandRaw(LootContext context, Consumer<LootPoolEntry> output) {
+        return this.expand ? this.addExpandedEntries(output) : this.addUnexpandedEntry(output);
+    }
+
+    protected abstract boolean addExpandedEntries(Consumer<LootPoolEntry> output);
+
+    protected abstract boolean addUnexpandedEntry(Consumer<LootPoolEntry> output);
+}

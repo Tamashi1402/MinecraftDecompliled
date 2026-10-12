@@ -1,0 +1,79 @@
+package net.minecraft.world.attribute;
+
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
+import java.util.List;
+import net.minecraft.util.ARGB;
+import net.minecraft.util.Mth;
+import org.joml.Vector3fc;
+import org.joml.Vector4fc;
+
+public interface LerpFunction<T> {
+    LerpFunction<?> CONSTANT = ofStep(1.0F);
+
+    static LerpFunction<Float> ofFloat() {
+        return Mth::lerp;
+    }
+
+    static LerpFunction<Integer> ofInteger() {
+        return Mth::lerpInt;
+    }
+
+    static LerpFunction<Float> ofDegrees(float maxDelta) {
+        return (alpha, from, to) -> {
+            float delta = Mth.wrapDegrees(to - from);
+            return Math.abs(delta) >= maxDelta ? to : from + alpha * delta;
+        };
+    }
+
+    static <T> LerpFunction<T> ofConstant() {
+        return (LerpFunction<T>)CONSTANT;
+    }
+
+    static <T> LerpFunction<T> ofStep(float threshold) {
+        return (alpha, from, to) -> alpha >= threshold ? to : from;
+    }
+
+    static LerpFunction<Integer> ofColor() {
+        return ARGB::srgbLerp;
+    }
+
+    static LerpFunction<Vector3fc> ofColorVec3() {
+        return ARGB::srgbLerp;
+    }
+
+    static LerpFunction<Vector4fc> ofColorVec4() {
+        return ARGB::srgbLerp;
+    }
+
+    static <T> LerpFunction<List<T>> ofListCrossFade(LerpFunction.AlphaScaler<T> scaler) {
+        return (alpha, from, to) -> {
+            if (alpha == 0.0F) {
+                return from;
+            }
+
+            if (alpha == 1.0F) {
+                return to;
+            }
+
+            Builder<T> builder = ImmutableList.builderWithExpectedSize(from.size() + to.size());
+
+            for (T element : from) {
+                builder.add(scaler.apply(element, 1.0F - alpha));
+            }
+
+            for (T element : to) {
+                builder.add(scaler.apply(element, alpha));
+            }
+
+            return builder.build();
+        };
+    }
+
+    T apply(float alpha, T from, T to);
+
+    @FunctionalInterface
+    interface AlphaScaler<T> {
+        T apply(T item, float alpha);
+    }
+}

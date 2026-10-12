@@ -1,0 +1,16 @@
+package com.mojang.blaze3d.pipeline;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.renderpearl.api.GpuFormat;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.api.distmarker.OnlyIn;
+import org.jspecify.annotations.Nullable;
+
+@OnlyIn(Dist.CLIENT)
+public class TextureTarget extends RenderTarget {
+    public TextureTarget(@Nullable String label, int width, int height, @Nullable GpuFormat colorFormat, @Nullable GpuFormat depthFormat) {
+        super(label, colorFormat, depthFormat);
+        RenderSystem.assertOnRenderThread();
+        this.resize(width, height);
+    }
+}
